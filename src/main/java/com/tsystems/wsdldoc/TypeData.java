@@ -7,7 +7,7 @@ import java.util.List;
  * Date: 25.08.2016
  * Time: 18:13
  */
-public class TypeData {
+public abstract class TypeData {
 
     private String name;
 

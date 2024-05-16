@@ -1,5 +1,7 @@
 package com.tsystems.wsdldoc;
 
+import java.util.Objects;
+
 /**
  * By: Alexey Matveev
  * Date: 25.08.2016
@@ -75,5 +77,45 @@ public class ElementData {
 
     public void setSchema(String schema) {
         this.schema = schema;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+
+        ElementData that = (ElementData) o;
+        return nativeType == that.nativeType
+                && Objects.equals(name, that.name)
+                && Objects.equals(typeName, that.typeName)
+                && Objects.equals(minOccurs, that.minOccurs)
+                && Objects.equals(maxOccurs, that.maxOccurs)
+                && Objects.equals(description, that.description)
+                && Objects.equals(schema, that.schema);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hashCode(name);
+        result = 31 * result + Objects.hashCode(typeName);
+        result = 31 * result + Boolean.hashCode(nativeType);
+        result = 31 * result + Objects.hashCode(minOccurs);
+        result = 31 * result + Objects.hashCode(maxOccurs);
+        result = 31 * result + Objects.hashCode(description);
+        result = 31 * result + Objects.hashCode(schema);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "ElementData{" +
+                "name='" + name + '\'' +
+                ", typeName='" + typeName + '\'' +
+                ", nativeType=" + nativeType +
+                ", minOccurs=" + minOccurs +
+                ", maxOccurs=" + maxOccurs +
+                ", description='" + description + '\'' +
+                ", schema='" + schema + '\'' +
+                '}';
     }
 }

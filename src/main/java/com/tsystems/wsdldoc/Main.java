@@ -90,7 +90,7 @@ public class Main {
                 title = cmd.getOptionValue("t");
             }
 
-            File outputFile = new File(destination.toString() + File.separator + filename);
+            File outputFile = new File(destination + File.separator + filename);
 
             // generate the documentation
             DocGenerator.generateDoc(sourceWsdlLocations, outputFile, title);

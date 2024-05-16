@@ -1,35 +1,26 @@
 package com.tsystems.wsdldoc;
 
-import com.predic8.schema.ComplexType;
-import com.predic8.schema.Element;
-import com.predic8.schema.SchemaComponent;
-import com.predic8.schema.Sequence;
-import com.predic8.schema.TypeDefinition;
-import com.predic8.wsdl.AbstractPortTypeMessage;
-import com.predic8.wsdl.Definitions;
-import com.predic8.wsdl.Input;
-import com.predic8.wsdl.Message;
-import com.predic8.wsdl.Operation;
-import com.predic8.wsdl.Output;
-import com.predic8.wsdl.Part;
-import com.predic8.wsdl.WSDLParser;
+import com.predic8.schema.*;
+import com.predic8.wsdl.*;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
+import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
+import groovy.namespace.QName;
 
 import java.io.File;
 import java.io.FileWriter;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.io.IOException;
+import java.util.*;
+
+import static com.tsystems.wsdldoc.TypesLocator.*;
+import static com.tsystems.wsdldoc.TypesMapper.map2Element;
+import static freemarker.template.Configuration.VERSION_2_3_32;
 
 /**
  * The main service for HTML documentation generation.
  * Takes parsed parameters, downloads and parses the input WSDL, processes the FTL.
- *
+ * <p/>
  * By: Alexey Matveev
  * Date: 31.08.2016
  * Time: 9:36
@@ -40,133 +31,101 @@ public class DocGenerator {
      * Generates the documentation out of the parameters.
      *
      * @param sourceWsdlLocations - the list of WSDL URL's
-     * @param outputFile - the output file
-     * @param title - title of the document
-     * @throws Exception
+     * @param outputFile          - the output file
+     * @param title               - title of the document
      */
-    public static void generateDoc(String[] sourceWsdlLocations, File outputFile, String title) throws Exception {
-        WSDLParser parser = new WSDLParser();
-        List<Definitions> defsList = new ArrayList<>();
-        for (String sourceWsdlLocation : sourceWsdlLocations) {
-            Definitions defs = parser.parse(sourceWsdlLocation);
-            defsList.add(defs);
-        }
+    public static void generateDoc(String[] sourceWsdlLocations, File outputFile, String title)
+            throws IOException, TemplateException {
 
-        Configuration cfg = new Configuration();
+        WSDLParser parser = new WSDLParser();
+
+        List<Definitions> defsList = Arrays.stream(sourceWsdlLocations)
+                                           .map(parser::parse)
+                                           .toList();
+
+        Configuration cfg = new Configuration(VERSION_2_3_32);
         cfg.setDefaultEncoding("UTF-8");
         cfg.setTemplateExceptionHandler(TemplateExceptionHandler.HTML_DEBUG_HANDLER);
         // loading templates
         cfg.setClassForTemplateLoading(DocGenerator.class, "/");
-//        FileTemplateLoader ftl1 = new FileTemplateLoader(new File("C:\\dev\\workspace\\wsdldoc\\src\\main\\resources\\"));
-//        cfg.setTemplateLoader(ftl1);
-
-        Map<String, Object> rootMap = new HashMap<>();
 
         List<ServiceData> services = new ArrayList<>();
-        Map<String, TypeData> finalTypesMap = new HashMap<>();
+        Map<String, TypeData> types = new HashMap<>();
 
         for (Definitions defs : defsList) {
-            Map<String, TypeDefinition> mapOfOriginalTypes = TypesLocator.createMapOfOriginalTypes(defs);
-            Map<String, Element> mapOfElements = TypesLocator.createMapOfElements(defs);
-            Map<String, TypeData> typesMap = TypesLocator.createMapOfTypes(defs, mapOfOriginalTypes, mapOfElements);
+            Map<String, TypeDefinition> mapOfOriginalTypes = createMapOfOriginalTypes(defs);
+            Map<String, Element> mapOfElements = createMapOfElements(defs);
+            types.putAll(createMapOfTypes(defs, mapOfOriginalTypes, mapOfElements));
 
-            List<ServiceData> servicesList = defs.getPortTypes().stream().map(p -> {
-                ServiceData serviceData = new ServiceData();
-                serviceData.setName(p.getName());
-                ArrayList<MethodData> methods = new ArrayList<>();
-                for (Operation op : p.getOperations()) {
-                    MethodData md = new MethodData();
-                    md.setName(op.getName());
-                    // request
-                    Input input = op.getInput();
-                    md.setRequest(getComplexTypeNameOfInputOutput(input, defs, mapOfOriginalTypes, mapOfElements));
-                    // response
-                    Output output = op.getOutput();
-                    md.setResponse(getComplexTypeNameOfInputOutput(output, defs, mapOfOriginalTypes, mapOfElements));
-                    methods.add(md);
-                }
-                serviceData.setMethods(methods);
-                return serviceData;
-            }).collect(Collectors.toList());
+            List<ServiceData> servicesList = defs.getPortTypes()
+                                                 .stream()
+                                                 .map(portType -> {
+                                                     List<MethodData> methods = getMethods(portType,
+                                                                                           defs,
+                                                                                           mapOfOriginalTypes,
+                                                                                           mapOfElements);
+                                                     return new ServiceData(portType.getName(), methods);
+                                                 })
+                                                 .toList();
             services.addAll(servicesList);
-
-            // temporary delete some EI* types
-            Set<String> eiNames = typesMap.keySet().stream().filter(k -> k.startsWith("EI")).collect(Collectors.toSet());
-            for (String eiName : eiNames) {
-                typesMap.remove(eiName);
-            }
-            // also remove SOABPException2
-            typesMap.remove("SOABPException");
-            typesMap.remove("SOABPException2");
-
-            for (String name : typesMap.keySet()) {
-                finalTypesMap.put(name, typesMap.get(name));
-            }
-
         }
+
+        Map<String, Object> rootMap = new HashMap<>();
         rootMap.put("services", services);
-        rootMap.put("types", finalTypesMap);
+        rootMap.put("types", types);
         rootMap.put("title", title);
 
         // process the template
         Template template = cfg.getTemplate("com/tsystems/wsdldoc/wsdldoc.ftl");
 
-//        List<TypeData> collect = finalTypesMap.values().stream().filter(t -> t instanceof ComplexTypeData).filter(ct -> {
-//            return ((ComplexTypeData) ct).getSequence() != null && ((ComplexTypeData) ct).getSequence().size() != 0 && ((ComplexTypeData) ct).getSequence().contains(null);
-//        }).collect(Collectors.toList());
-
         template.process(rootMap, new FileWriter(outputFile));
     }
 
-    public static ComplexTypeData getComplexTypeNameOfInputOutput(AbstractPortTypeMessage portTypeMessage, Definitions defs,
-                                                         Map<String, TypeDefinition> mapOfOriginalTypes, Map<String, Element> mapOfElements) {
+    private static List<MethodData> getMethods(PortType portType,
+                                               Definitions defs,
+                                               Map<String, TypeDefinition> mapOfOriginalTypes,
+                                               Map<String, Element> mapOfElements) {
+
+        return portType.getOperations()
+                       .stream()
+                       .map(operation -> {
+                           // request
+                           Input input = operation.getInput();
+                           ComplexTypeData in = getComplexTypeData(input, defs, mapOfOriginalTypes, mapOfElements);
+                           // response
+                           Output output = operation.getOutput();
+                           ComplexTypeData out = getComplexTypeData(output, defs, mapOfOriginalTypes, mapOfElements);
+
+                           String name = operation.getName();
+                           return new MethodData(name, in, out);
+                       })
+                       .toList();
+    }
+
+    public static ComplexTypeData getComplexTypeData(AbstractPortTypeMessage portTypeMessage,
+                                                     Definitions defs,
+                                                     Map<String, TypeDefinition> mapOfOriginalTypes,
+                                                     Map<String, Element> mapOfElements) {
         String messageName = portTypeMessage.getMessagePrefixedName().getLocalName();
-        String typeName = messageName;
-        for (Message message : defs.getLocalMessages()) {
-            if (message.getName().equals(messageName)) {
-                if (message.getParts() != null) {
-                    for (Part part : message.getParts()) {
-                        Element element = part.getElement();
-                        if (element != null) {
-                            if (element.getType() != null) {
-                                typeName = element.getType().getLocalPart();
-                            } else if (element.getRef() != null) {
-                                typeName = element.getRef().getLocalPart();
-                            } else {
-                                typeName = element.getName();
-                            }
-                        }
-                    }
-                }
-            }
-        }
+        String typeName = getTypeName(defs, messageName);
         TypeDefinition originalRequestType = mapOfOriginalTypes.get(typeName);
         ComplexTypeData result = null;
         if (originalRequestType != null) {
             result = TypesMapper.map2ComplexType((ComplexType) originalRequestType, mapOfOriginalTypes, mapOfElements);
         } else {
-            // check it's an element
+            // check if it's an element
             Element element = mapOfElements.get(typeName);
             if (element != null) {
                 result = new ComplexTypeData();
                 result.setName(typeName);
                 TypeDefinition embeddedType = element.getEmbeddedType();
-                if (embeddedType != null) {
-                    if (embeddedType instanceof ComplexType) {
-                        SchemaComponent model = ((ComplexType) embeddedType).getModel();
-                        if (model instanceof Sequence) {
-                            List<SchemaComponent> particles = ((Sequence) model).getParticles();
-                            if (particles != null) {
-                                ArrayList<ElementData> sequence = new ArrayList<>();
-                                for (SchemaComponent particle : particles) {
-                                    if (particle instanceof Element) {
-                                        Element particleElement = (Element) particle;
-                                        ElementData elementData = TypesMapper.map2Element(particleElement);
-                                        sequence.add(elementData);
-                                    }
-                                }
-                                result.setSequence(sequence);
-                            }
+                if (embeddedType instanceof ComplexType complexType) {
+                    SchemaComponent model = complexType.getModel();
+                    if (model instanceof Sequence modelSequence) {
+                        List<SchemaComponent> particles = modelSequence.getParticles();
+                        if (particles != null) {
+                            List<ElementData> sequence = getElementDataOfParticles(particles, mapOfElements);
+                            result.setSequence(sequence);
                         }
                     }
                 }
@@ -180,6 +139,44 @@ public class DocGenerator {
         }
 
         return result;
+    }
+
+    private static List<ElementData> getElementDataOfParticles(List<SchemaComponent> particles,
+                                                               Map<String, Element> mapOfElements) {
+        return particles.stream()
+                        .filter(p -> p instanceof Element)
+                        .map(p -> map2Element((Element) p, mapOfElements))
+                        .toList();
+    }
+
+    private static String getTypeName(Definitions defs, String messageName) {
+        return defs.getLocalMessages().stream()
+                .filter(msg -> msg.getName().equals(messageName))
+                .map(msg -> getTypeName(msg.getParts()))
+                .findFirst()
+                .orElse(messageName);
+    }
+
+    private static String getTypeName(List<Part> parts) {
+        return parts.stream().map(Part::getElement)
+                    .filter(Objects::nonNull)
+                    .map(DocGenerator::getTypeName)
+                    .findFirst()
+                    .orElse(null);
+    }
+
+    private static String getTypeName(Element element) {
+        String typeName;
+        QName elementType = element.getType();
+        QName elementRef = element.getRef();
+        if (elementType != null) {
+            typeName = elementType.getLocalPart();
+        } else if (elementRef != null) {
+            typeName = elementRef.getLocalPart();
+        } else {
+            typeName = element.getName();
+        }
+        return typeName;
     }
 
 }

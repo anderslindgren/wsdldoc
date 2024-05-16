@@ -1,5 +1,6 @@
 package com.tsystems.wsdldoc;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -25,6 +26,7 @@ public class SimpleTypeData extends TypeData {
 
     public SimpleTypeData() {
         setType(1);
+        enumerations = new ArrayList<>();
     }
 
     public List<String> getEnumerations() {

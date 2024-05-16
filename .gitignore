@@ -5,3 +5,4 @@ gradle
 *.iml
 .idea
 gen
+/api/

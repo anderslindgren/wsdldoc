@@ -30,19 +30,13 @@ public class DocGenerator {
     /**
      * Generates the documentation out of the parameters.
      *
-     * @param sourceWsdlLocations - the list of WSDL URL's
-     * @param templateFile        - the template file
-     * @param outputFile          - the output file
-     * @param title               - title of the document
+     * @param defsList     - the list of parsed WSDL definitions
+     * @param templateFile - the template file
+     * @param outputFile   - the output file
+     * @param title        - title of the document
      */
-    public static void generateDoc(String[] sourceWsdlLocations, String templateFile, File outputFile, String title)
+    public static void generateDoc(List<Definitions> defsList, String templateFile, File outputFile, String title)
             throws IOException, TemplateException {
-
-        WSDLParser parser = new WSDLParser();
-
-        List<Definitions> defsList = Arrays.stream(sourceWsdlLocations)
-                                           .map(parser::parse)
-                                           .toList();
 
         Configuration cfg = new Configuration(VERSION_2_3_33);
         cfg.setDefaultEncoding("UTF-8");

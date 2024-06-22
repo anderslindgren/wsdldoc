@@ -1,28 +1,31 @@
 package com.tsystems.wsdldoc;
 
+import com.predic8.wsdl.Definitions;
+import com.predic8.wsdl.WSDLParser;
+import com.predic8.wsdl.WSDLParserContext;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
 import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 
-import java.io.File;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Entry point.
  * CLI for using as "java -jar jar_name params"
- *
+ * <p/>
  * By: Alexey Matveev
  * Date: 25.08.2016
  * Time: 16:38
  */
 public class Main {
+
 
     public static void main(String[] args) throws Exception {
         long start = System.currentTimeMillis();
@@ -43,10 +46,20 @@ public class Main {
 
         // parse input parameters
         Options options = new Options();
-        options.addOption("d", "destination", true, "the destination folder of documentation (absolute or relative), it will generate index.html and statics in this folder (there should be write access to the folder)");
-        options.addOption("f", "filename", true, "the destination file name (default is index.html)");
+        options.addOption("d",
+                          "destination",
+                          true,
+                          "the destination folder of documentation (absolute or relative), it will generate index.html and statics in this folder (there should be write access to the folder)");
+        options.addOption("o", "output", true, "the destination file name (default is index.html)");
         options.addOption("h", "help", false, "shows this help output");
-        options.addOption("s", "source", true, "one or multiple URLs with source WSDLs location; the schemas in WSDL's should have schemaLocation in order to correctly generate all the types");
+        options.addOption("s",
+                          "source",
+                          true,
+                          "one or multiple URLs with source WSDLs location; the schemas in WSDL's should have schemaLocation in order to correctly generate all the types");
+        options.addOption("f",
+                          "file",
+                          true,
+                          "filename source WSDLs location; the schemas in WSDL's should have schemaLocation in order to correctly generate all the types");
         options.addOption("t", "title", true, "the title of the documentation, like \"eCompany\" (WSDL by default)");
         options.addOption("T", "template", true, "the template to use");
 
@@ -55,7 +68,7 @@ public class Main {
 
         if (args.length == 0 || cmd.hasOption("h")) {
             HelpFormatter formatter = new HelpFormatter();
-            formatter.printHelp( "wsdldoc", options );
+            formatter.printHelp("wsdldoc", options);
         } else {
             String template;
             if (!cmd.hasOption('T')) {
@@ -78,18 +91,24 @@ public class Main {
             }
             // default filename is "index.html"
             String filename = "index.html";
-            if (!cmd.hasOption("f")) {
+            if (!cmd.hasOption("o")) {
                 System.out.println("# The default filename \"index.html\" will be used");
             } else {
-                filename = cmd.getOptionValue("f");
+                filename = cmd.getOptionValue("o");
             }
             // wsdl locations is a mandatory parameter
-            String[] sourceWsdlLocations;
-            if (!cmd.hasOption("s")) {
+            String[] sourceWsdlLocations = null;
+            String sourceWsdlFileName = null;
+            if (!cmd.hasOption("s") && !cmd.hasOption("f")) {
                 System.out.println("# You have provided no source WSDL's to process");
                 return;
             } else {
-                sourceWsdlLocations = cmd.getOptionValues("s");
+                if (cmd.hasOption("s")) {
+                    sourceWsdlLocations = cmd.getOptionValues("s");
+                }
+                if (cmd.hasOption("f")) {
+                    sourceWsdlFileName = cmd.getOptionValue("f");
+                }
             }
             // title is "WSDL documentation" by default
             String title = "WSDL";
@@ -102,7 +121,29 @@ public class Main {
             File outputFile = new File(destination + File.separator + filename);
 
             // generate the documentation
-            DocGenerator.generateDoc(sourceWsdlLocations, template, outputFile, title);
+            WSDLParser parser = new WSDLParser();
+            List<Definitions> defsList = List.of();
+            if (sourceWsdlLocations != null) {
+                defsList = Arrays.stream(sourceWsdlLocations)
+                                 .map(parser::parse)
+                                 .toList();
+            } else if (sourceWsdlFileName != null) {
+                File f = new File(sourceWsdlFileName);
+                if (!f.exists()) {
+                    System.out.printf("File %s does not exist", sourceWsdlFileName);
+                    return;
+                }
+                try (FileInputStream fStream = new FileInputStream(f)) {
+                    WSDLParserContext ctx = new WSDLParserContext();
+                    ctx.setBaseDir(f.getParent());
+                    ctx.setInput(fStream);
+                    defsList = List.of((parser.parse(ctx)));
+                } catch (FileNotFoundException e) {
+                    System.out.println("Could not find file: " + e.getLocalizedMessage());
+                    return;
+                }
+            }
+            DocGenerator.generateDoc(defsList, template, outputFile, title);
 
             if (template.equals("wsdl2html")) {
                 // copy files in "static" folder
@@ -124,6 +165,7 @@ public class Main {
 
     /**
      * Copies the static files from jar (IDE) to target bundle.
+     *
      * @param fileName
      * @param destination
      * @throws Exception
@@ -133,12 +175,14 @@ public class Main {
 //        System.out.println("Jar folder: " + jarFolder);
         // for IDE usage
         if (Files.exists(Paths.get("src\\main\\resources\\static" + File.separator + fileName))) {
-            Files.copy(Paths.get("src\\main\\resources\\static" + File.separator + fileName), new FileOutputStream(new File(destination + File.separator + fileName)));
+            Files.copy(Paths.get("src\\main\\resources\\static" + File.separator + fileName),
+                       new FileOutputStream(new File(destination + File.separator + fileName)));
         } else {
             // for usage as a JAR
 //            System.out.println(Main.class.getClassLoader().getResourceAsStream("wsdl2html.ftl")); // ok
 //            System.out.println(Main.class.getClassLoader().getResourceAsStream("static/complex-icon.png")); // ok
-            try (InputStream stream = Main.class.getClassLoader().getResourceAsStream("static/" + fileName); OutputStream resStreamOut = new FileOutputStream(destination + File.separator + fileName)) {
+            try (InputStream stream = Main.class.getClassLoader().getResourceAsStream("static/" + fileName);
+                 OutputStream resStreamOut = new FileOutputStream(destination + File.separator + fileName)) {
                 if (stream == null) {
                     throw new Exception("Cannot get resource \"" + fileName + "\" from Jar file.");
                 }
@@ -150,7 +194,6 @@ public class Main {
             }
         }
     }
-
 
 
 }

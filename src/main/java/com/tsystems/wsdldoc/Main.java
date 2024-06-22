@@ -48,6 +48,7 @@ public class Main {
         options.addOption("h", "help", false, "shows this help output");
         options.addOption("s", "source", true, "one or multiple URLs with source WSDLs location; the schemas in WSDL's should have schemaLocation in order to correctly generate all the types");
         options.addOption("t", "title", true, "the title of the documentation, like \"eCompany\" (WSDL by default)");
+        options.addOption("T", "template", true, "the template to use");
 
         CommandLineParser cmdparser = new DefaultParser();
         CommandLine cmd = cmdparser.parse(options, args);
@@ -56,6 +57,14 @@ public class Main {
             HelpFormatter formatter = new HelpFormatter();
             formatter.printHelp( "wsdldoc", options );
         } else {
+            String template;
+            if (!cmd.hasOption('T')) {
+                System.out.println("You must provide a template to use.");
+                return;
+            } else {
+                template = cmd.getOptionValue('T');
+            }
+
             // current directory by default
             Path destination = Paths.get(".");
             if (!cmd.hasOption("d")) {
@@ -93,21 +102,22 @@ public class Main {
             File outputFile = new File(destination + File.separator + filename);
 
             // generate the documentation
-            DocGenerator.generateDoc(sourceWsdlLocations, outputFile, title);
+            DocGenerator.generateDoc(sourceWsdlLocations, template, outputFile, title);
 
-            // copy files in "static" folder
-            copyStaticFiles("bootstrap.min.css", destination.toString());
-            copyStaticFiles("wsdl_style.css", destination.toString());
-            copyStaticFiles("complex-icon.png", destination.toString());
-            copyStaticFiles("complex-icon-orange.png", destination.toString());
-            copyStaticFiles("simple-icon.png", destination.toString());
-            copyStaticFiles("simple-icon-cube.png", destination.toString());
-            copyStaticFiles("simple-icon-orange.png", destination.toString());
-
+            if (template.equals("wsdl2html")) {
+                // copy files in "static" folder
+                copyStaticFiles("bootstrap.min.css", destination.toString());
+                copyStaticFiles("wsdl_style.css", destination.toString());
+                copyStaticFiles("complex-icon.png", destination.toString());
+                copyStaticFiles("complex-icon-orange.png", destination.toString());
+                copyStaticFiles("simple-icon.png", destination.toString());
+                copyStaticFiles("simple-icon-cube.png", destination.toString());
+                copyStaticFiles("simple-icon-orange.png", destination.toString());
+            }
             System.out.println("--");
             long end = System.currentTimeMillis();
             System.out.println("Documentation generated in " + (end - start) / 1000 + "s");
-            System.out.println("The index file location is: " + outputFile.getAbsolutePath());
+            System.out.println("The output location is: " + destination.toAbsolutePath());
         }
 
     }
@@ -126,7 +136,7 @@ public class Main {
             Files.copy(Paths.get("src\\main\\resources\\static" + File.separator + fileName), new FileOutputStream(new File(destination + File.separator + fileName)));
         } else {
             // for usage as a JAR
-//            System.out.println(Main.class.getClassLoader().getResourceAsStream("wsdldoc.ftl")); // ok
+//            System.out.println(Main.class.getClassLoader().getResourceAsStream("wsdl2html.ftl")); // ok
 //            System.out.println(Main.class.getClassLoader().getResourceAsStream("static/complex-icon.png")); // ok
             try (InputStream stream = Main.class.getClassLoader().getResourceAsStream("static/" + fileName); OutputStream resStreamOut = new FileOutputStream(destination + File.separator + fileName)) {
                 if (stream == null) {

@@ -15,7 +15,7 @@ import java.util.*;
 
 import static com.tsystems.wsdldoc.TypesLocator.*;
 import static com.tsystems.wsdldoc.TypesMapper.map2Element;
-import static freemarker.template.Configuration.VERSION_2_3_32;
+import static freemarker.template.Configuration.VERSION_2_3_33;
 
 /**
  * The main service for HTML documentation generation.
@@ -31,10 +31,11 @@ public class DocGenerator {
      * Generates the documentation out of the parameters.
      *
      * @param sourceWsdlLocations - the list of WSDL URL's
+     * @param templateFile        - the template file
      * @param outputFile          - the output file
      * @param title               - title of the document
      */
-    public static void generateDoc(String[] sourceWsdlLocations, File outputFile, String title)
+    public static void generateDoc(String[] sourceWsdlLocations, String templateFile, File outputFile, String title)
             throws IOException, TemplateException {
 
         WSDLParser parser = new WSDLParser();
@@ -43,8 +44,9 @@ public class DocGenerator {
                                            .map(parser::parse)
                                            .toList();
 
-        Configuration cfg = new Configuration(VERSION_2_3_32);
+        Configuration cfg = new Configuration(VERSION_2_3_33);
         cfg.setDefaultEncoding("UTF-8");
+        cfg.setIncompatibleImprovements(VERSION_2_3_33);
         cfg.setTemplateExceptionHandler(TemplateExceptionHandler.HTML_DEBUG_HANDLER);
         // loading templates
         cfg.setClassForTemplateLoading(DocGenerator.class, "/");
@@ -57,16 +59,17 @@ public class DocGenerator {
             Map<String, Element> mapOfElements = createMapOfElements(defs);
             types.putAll(createMapOfTypes(defs, mapOfOriginalTypes, mapOfElements));
 
-            List<ServiceData> servicesList = defs.getPortTypes()
-                                                 .stream()
-                                                 .map(portType -> {
-                                                     List<MethodData> methods = getMethods(portType,
-                                                                                           defs,
-                                                                                           mapOfOriginalTypes,
-                                                                                           mapOfElements);
-                                                     return new ServiceData(portType.getName(), methods);
-                                                 })
-                                                 .toList();
+            List<ServiceData> servicesList =
+                    defs.getPortTypes()
+                        .stream()
+                        .map(portType -> {
+                            List<MethodData> methods = getMethods(portType,
+                                                                  defs,
+                                                                  mapOfOriginalTypes,
+                                                                  mapOfElements);
+                            return new ServiceData(portType.getName(), methods);
+                        })
+                        .toList();
             services.addAll(servicesList);
         }
 
@@ -76,7 +79,7 @@ public class DocGenerator {
         rootMap.put("title", title);
 
         // process the template
-        Template template = cfg.getTemplate("com/tsystems/wsdldoc/wsdldoc.ftl");
+        Template template = cfg.getTemplate(templateFile);
 
         template.process(rootMap, new FileWriter(outputFile));
     }
@@ -118,14 +121,17 @@ public class DocGenerator {
             if (element != null) {
                 result = new ComplexTypeData();
                 result.setName(typeName);
+                result.setSchema(element.getNamespaceUri());
                 TypeDefinition embeddedType = element.getEmbeddedType();
                 if (embeddedType instanceof ComplexType complexType) {
                     SchemaComponent model = complexType.getModel();
                     if (model instanceof Sequence modelSequence) {
                         List<SchemaComponent> particles = modelSequence.getParticles();
                         if (particles != null) {
-                            List<ElementData> sequence = getElementDataOfParticles(particles, mapOfElements);
-                            result.setSequence(sequence);
+                            result.setSequence(particles.stream()
+                                                        .filter(p -> p instanceof Element)
+                                                        .map(p -> map2Element((Element) p, mapOfElements))
+                                                        .toList());
                         }
                     }
                 }
@@ -141,20 +147,12 @@ public class DocGenerator {
         return result;
     }
 
-    private static List<ElementData> getElementDataOfParticles(List<SchemaComponent> particles,
-                                                               Map<String, Element> mapOfElements) {
-        return particles.stream()
-                        .filter(p -> p instanceof Element)
-                        .map(p -> map2Element((Element) p, mapOfElements))
-                        .toList();
-    }
-
     private static String getTypeName(Definitions defs, String messageName) {
         return defs.getLocalMessages().stream()
-                .filter(msg -> msg.getName().equals(messageName))
-                .map(msg -> getTypeName(msg.getParts()))
-                .findFirst()
-                .orElse(messageName);
+                   .filter(msg -> msg.getName().equals(messageName))
+                   .map(msg -> getTypeName(msg.getParts()))
+                   .findFirst()
+                   .orElse(messageName);
     }
 
     private static String getTypeName(List<Part> parts) {

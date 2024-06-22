@@ -253,10 +253,10 @@ public class TypesMapper {
     public static String getAnnotationDescription(Annotation annotation) {
         if (annotation != null) {
             Object contents = annotation.getContents();
-            if (contents instanceof Collection) {
-                for (Object next : (Collection) contents) {
-                    if (next instanceof Documentation) {
-                        return ((Documentation) next).getContent();
+            if (contents instanceof Collection collection) {
+                for (Object next : collection) {
+                    if (next instanceof Documentation documentation) {
+                        return documentation.getContent();
                     }
                 }
             }

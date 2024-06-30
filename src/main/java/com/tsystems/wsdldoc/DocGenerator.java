@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static com.tsystems.wsdldoc.TypesLocator.*;
+import static com.tsystems.wsdldoc.TypesMapper.getLongName;
 import static com.tsystems.wsdldoc.TypesMapper.map2Element;
 import static freemarker.template.Configuration.VERSION_2_3_33;
 
@@ -40,30 +41,29 @@ public class DocGenerator {
 
         Configuration cfg = new Configuration(VERSION_2_3_33);
         cfg.setDefaultEncoding("UTF-8");
-        cfg.setIncompatibleImprovements(VERSION_2_3_33);
         cfg.setTemplateExceptionHandler(TemplateExceptionHandler.HTML_DEBUG_HANDLER);
         // loading templates
         cfg.setClassForTemplateLoading(DocGenerator.class, "/");
 
         List<ServiceData> services = new ArrayList<>();
-        Map<String, TypeData> types = new HashMap<>();
+        Map<String, TypeData> types = new TreeMap<>();
 
         for (Definitions defs : defsList) {
             Map<String, TypeDefinition> mapOfOriginalTypes = createMapOfOriginalTypes(defs);
             Map<String, Element> mapOfElements = createMapOfElements(defs);
             types.putAll(createMapOfTypes(defs, mapOfOriginalTypes, mapOfElements));
 
-            List<ServiceData> servicesList =
-                    defs.getPortTypes()
-                        .stream()
-                        .map(portType -> {
-                            List<MethodData> methods = getMethods(portType,
-                                                                  defs,
-                                                                  mapOfOriginalTypes,
-                                                                  mapOfElements);
-                            return new ServiceData(portType.getName(), methods);
-                        })
-                        .toList();
+            List<ServiceData> servicesList = defs.getPortTypes()
+                                                 .stream()
+                                                 .map(portType -> {
+                                                     List<MethodData> methods = getMethods(portType,
+                                                                                           defs,
+                                                                                           mapOfOriginalTypes,
+                                                                                           mapOfElements);
+                                                     return new ServiceData(portType.getName(), methods);
+                                                 })
+                                                 .sorted()
+                                                 .toList();
             services.addAll(servicesList);
         }
 
@@ -114,7 +114,7 @@ public class DocGenerator {
             Element element = mapOfElements.get(typeName);
             if (element != null) {
                 result = new ComplexTypeData();
-                result.setName(typeName);
+                result.setName(element.getName());
                 result.setSchema(element.getNamespaceUri());
                 TypeDefinition embeddedType = element.getEmbeddedType();
                 if (embeddedType instanceof ComplexType complexType) {
@@ -159,6 +159,7 @@ public class DocGenerator {
 
     private static String getTypeName(Element element) {
         String typeName;
+        String namespace = element.getSchema().getTargetNamespace();
         QName elementType = element.getType();
         QName elementRef = element.getRef();
         if (elementType != null) {
@@ -168,7 +169,7 @@ public class DocGenerator {
         } else {
             typeName = element.getName();
         }
-        return typeName;
+        return getLongName(namespace, typeName);
     }
 
 }

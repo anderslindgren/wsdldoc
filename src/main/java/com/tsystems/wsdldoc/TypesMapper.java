@@ -6,9 +6,9 @@ import com.predic8.schema.restriction.facet.*;
 import groovy.namespace.QName;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * By: Alexey Matveev
@@ -23,7 +23,7 @@ public class TypesMapper {
         ComplexTypeData complexTypeData = new ComplexTypeData();
         complexTypeData.setName(ct.getName());
         complexTypeData.setSchema(ct.getSchema().getSchemaLocation());
-        complexTypeData.setDescription(getTypeDescription(ct));
+        complexTypeData.setDescription(getDescription(ct));
         Sequence sequence = ct.getSequence();
         if (sequence != null) {
             List<SchemaComponent> particles = sequence.getParticles();
@@ -86,50 +86,55 @@ public class TypesMapper {
         List<ElementData> sequenceResult = null;
         if (components != null) {
             for (SchemaComponent component : components) {
-                if (component instanceof Element p) {
+                if (component instanceof Element element) {
                     // some parts can have "ref" but no "type"
                     ElementData ed = null;
-                    String name = p.getName();
-                    QName type = p.getType();
-                    QName ref = p.getRef();
+                    String name = element.getName();
+                    QName type = element.getType();
+                    QName ref = element.getRef();
                     if (type != null) {
-                        TypeDefinition typeDefinition = mapOfOriginalTypes.get(type.getLocalPart());
+                        String longName = getLongName(type.getNamespaceURI(), type.getLocalPart());
+                        TypeDefinition typeDefinition = mapOfOriginalTypes.get(longName);
+//                        TypeDefinition typeDefinition = mapOfOriginalTypes.get(type.getLocalPart());
+                        // checks whether the type is embedded like "string", "int", or custom one
                         if (typeDefinition != null) {
-                            ed = map2Element(p, typeDefinition);
-                            // checks whether the type is embedded like "string", "int", or custom one
+                            ed = map2Element(element, typeDefinition);
                             ed.setNativeType(false);
                         } else {
                             ed = new ElementData();
                             ed.setNativeType(true);
                             ed.setName(name);
                             ed.setTypeName(type.getLocalPart());
-                            ed.setMinOccurs(mapOccurs(p.getMinOccurs()));
-                            ed.setMaxOccurs(mapOccurs(p.getMaxOccurs()));
-                            ed.setDescription(null);
-                            Schema schema = p.getSchema();
+                            ed.setMinOccurs(mapOccurs(element.getMinOccurs()));
+                            ed.setMaxOccurs(mapOccurs(element.getMaxOccurs()));
+                            ed.setDescription(getDescription(element));
+                            Schema schema = element.getSchema();
                             if (schema != null) {
                                 ed.setSchema(schema.getSchemaLocation());
                             }
 
                         }
                     } else if (ref != null) {
-                        Element el = mapOfElements.get(ref.getLocalPart());
+                        String namespaceURI = ref.getNamespaceURI();
+                        String longName = getLongName(namespaceURI, ref.getLocalPart());
+
+                        Element el = mapOfElements.get(longName);
                         if (el != null) {
                             ed = map2Element(el, mapOfElements);
                             // checks whether the type is embedded like "string", "int", or custom one
                             ed.setNativeType(el.getType() == null);
                         } else {
-                            System.out.println("Cannot find element " + ref.getLocalPart() + " in schemas for mapping");
+                            System.out.println("Cannot find element " + longName + " in schemas for mapping");
                         }
-                    } else if (p.getEmbeddedType() != null) {
-                        TypeDefinition embeddedType = p.getEmbeddedType();
+                    } else if (element.getEmbeddedType() != null) {
+                        TypeDefinition embeddedType = element.getEmbeddedType();
                         if (embeddedType instanceof SimpleType simpleType) {
-                            ed = map2ElementWithSimpleType(p, simpleType);
+                            ed = map2ElementWithSimpleType(element, simpleType);
                         } else {
                             System.out.println("Unhandled embedded type's type in component " + name);
                         }
                     } else {
-                        ed = map2Element(p, mapOfElements);
+                        ed = map2Element(element, mapOfElements);
                     }
                     if (ed != null) {
                         if (sequenceResult == null) {
@@ -163,7 +168,7 @@ public class TypesMapper {
     private static void mapFacets(SimpleType st, List<Facet> facets, SimpleTypeData result) {
         for (Facet facet : facets) {
             switch (facet) {
-                case EnumerationFacet enumeration -> result.getEnumerations().add(enumeration.getValue());
+                case EnumerationFacet enumeration -> result.addEnum(new EnumType(enumeration));
                 case MinLengthFacet minLength -> result.setMinLength(minLength.getValue());
                 case MaxLengthFacet maxLength -> result.setMaxLength(maxLength.getValue());
                 case LengthFacet length -> result.setLength(length.getValue());
@@ -177,30 +182,55 @@ public class TypesMapper {
                 case FractionDigits fraction -> result.setFractionDigits(fraction.getValue());
                 case null -> System.out.println("Facet type: null for simple type: " + st.getName());
                 default -> System.out.println("Unhandled facet type: " + facet.getName() +
-                        " for simple type: " + st.getName());
+                                                      " for simple type: " + st.getName());
             }
         }
     }
 
     public static ElementData map2Element(Element element, Map<String, Element> mapOfElements) {
         ElementData result = new ElementData();
+
         result.setName(element.getName() == null ? "" : element.getName());
-        if (element.getType() != null) {
-            result.setTypeName(element.getType().getLocalPart());
+        QName type = element.getType();
+        if (type != null) {
+            String namespace = type.getNamespaceURI();
+            String localPart = type.getLocalPart();
+            String longName;
+            if (namespace.equals("http://www.w3.org/2001/XMLSchema")) {
+                longName = localPart;
+                result.setNativeType(true);
+            } else {
+                longName = getLongName(namespace, localPart);
+                result.setNativeType(false);
+            }
+            result.setTypeName(longName);
         } else if (element.getRef() != null) {
+            String namespace = element.getSchema().getTargetNamespace();
             String refName = element.getRef().getLocalPart();
+            String longName = getLongName(namespace, refName);
             result.setName(refName);
-            Element refElement = mapOfElements.get(refName);
-            result.setTypeName(refElement.getType().getLocalPart());
+            Element refElement = mapOfElements.get(longName);
+            if (refElement != null) {
+                result.setTypeName(refElement.getType().getLocalPart());
+            }
         }
         result.setMinOccurs(mapOccurs(element.getMinOccurs()));
         result.setMaxOccurs(mapOccurs(element.getMaxOccurs()));
-        result.setDescription(getAnnotationDescription(element.getAnnotation()));
+        result.setDescription(getDescription(element));
         Schema schema = element.getSchema();
         if (schema != null) {
             result.setSchema(schema.getSchemaLocation());
         }
         return result;
+    }
+
+    public static String getLongName(String namespace, String localPart) {
+        int i = namespace.indexOf("schema/");
+        String start = namespace;
+        if (i >= 0) {
+            start = namespace.substring(i + 7);
+        }
+        return start.replaceAll("/", "_") + "_" + localPart;
     }
 
     public static ElementData map2Element(Element element, TypeDefinition type) {
@@ -211,7 +241,7 @@ public class TypesMapper {
         }
         result.setMinOccurs(mapOccurs(element.getMinOccurs()));
         result.setMaxOccurs(mapOccurs(element.getMaxOccurs()));
-        result.setDescription(getTypeDescription(type));
+        result.setDescription(getDescription(type));
         if (type != null) {
             Schema schema = type.getSchema();
             if (schema != null) {
@@ -228,7 +258,7 @@ public class TypesMapper {
         result.setNativeType(true);
         result.setMinOccurs(mapOccurs(element.getMinOccurs()));
         result.setMaxOccurs(mapOccurs(element.getMaxOccurs()));
-        result.setDescription(getTypeDescription(type));
+        result.setDescription(getDescription(type));
         Schema schema = type.getSchema();
         if (schema != null) {
             result.setSchema(schema.getSchemaLocation());
@@ -243,25 +273,30 @@ public class TypesMapper {
         return Integer.valueOf(occurs);
     }
 
-    public static String getTypeDescription(TypeDefinition type) {
+    public static String getDescription(TypeDefinition type) {
         if (type == null) {
             return null;
         }
         return getAnnotationDescription(type.getAnnotation());
     }
 
+    private static String getDescription(Element element) {
+        if (element == null) {
+            return null;
+        }
+        return getAnnotationDescription(element.getAnnotation());
+    }
+
     public static String getAnnotationDescription(Annotation annotation) {
         if (annotation != null) {
-            Object contents = annotation.getContents();
-            if (contents instanceof Collection collection) {
-                for (Object next : collection) {
-                    if (next instanceof Documentation documentation) {
-                        return documentation.getContent();
-                    }
-                }
+            List<Documentation> docs = annotation.getDocumentations();
+            if (docs != null) {
+                return docs.stream()
+                           .filter(d -> d.getLang() != null && d.getLang().equals("sv"))
+                           .map(Documentation::getContent)
+                           .collect(Collectors.joining("\n"));
             }
         }
         return null;
     }
-
 }

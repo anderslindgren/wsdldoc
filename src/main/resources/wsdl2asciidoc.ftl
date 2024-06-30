@@ -1,4 +1,6 @@
 = ${title}
+:icons:
+:icontype: svg
 
 == Services
 
@@ -20,7 +22,7 @@ Description: ${method.request.description}
 <#if method.request.sequence??>
 [cols="3,3,1,8"]
 |===
-|Parameter |Datatype |Cardinality |Description
+|Parameter |Datatyp |Kardinalitet |Beskrivning
 
 <#list method.request.sequence as type>
 |${type.name}
@@ -44,7 +46,7 @@ Description: ${method.response.description}
 <#if method.response.sequence??>
 [cols="3,3,1,8"]
 |===
-|Parameter |Datatype |Cardinality |Description
+|Parameter |Datatyp |Kardinalitet |Beskrivning
 
 <#list method.response.sequence as type>
 |${type.name}
@@ -63,24 +65,25 @@ Description: ${method.response.description}
 </#list>
 
 ==== Datatypes
-<#list types?keys as name>
-<#if types[name].type == 0>
+<#list types?keys as key>
+<#if types[key].type == 0>
 
-// tag::${name}[]
-.${name}
+// tag::${key}[]
+[[${key},${types[key].name}]]
+.${types[key].name} icon:ct[]
 ****
-<#if types[name].schema??><#if types[name].schema != "">link:${types[name].schema}[]</#if></#if>
+<#if types[key].schema??><#if types[key].schema != "">link:${types[key].schema}[]</#if></#if>
 
-<#if types[name].description ??>
-${types[name].description}
+<#if types[key].description ??>
+${types[key].description}
 
 </#if>
-<#if types[name].sequence??>
+<#if types[key].sequence??>
 [cols="2,2,2,4"]
 |===
-|Attribut |Datatyp |Cardinality |Beskrivning
+|Attribut |Datatyp |Kardinalitet |Beskrivning
 
-<#list types[name].sequence as el>
+<#list types[key].sequence as el>
 |${el.name}
 <#if el.nativeType>
 <#if el.typeName??>|${el.typeName}</#if>
@@ -93,78 +96,83 @@ ${types[name].description}
 |===
 </#if>
 ****
-// end::${name}[]
+// end::${key}[]
 </#if>
 </#list>
-<#list types?keys as name>
-<#if types[name].type == 1>
+<#list types?keys as key>
+<#if types[key].type == 1>
 
-// tag::${name}[]
-.${name}
+// tag::${key}[]
+[[${key},${types[key].name}]]
+.${types[key].name} icon:st[]
 ****
-<#if types[name].schema??>
-<#if types[name].schema != "">
-link:${types[name].schema}[]
+<#if types[key].schema??>
+<#if types[key].schema != "">
+link:${types[key].schema}[]
 
 </#if>
 </#if>
-<#if types[name].description ??>
-${types[name].description}
+<#if types[key].base ??>
+*Base type:* ${types[key].base}
 
 </#if>
-<#if types[name].enumerations??>
-<#list types[name].enumerations>
+<#if types[key].description ??>
+${types[key].description}
+
+</#if>
+<#if types[key].enumerations??>
+<#list types[key].enumerations>
 [cols="1,3"]
 |===
 |Värde |Beskrivning
 
 <#items as en>
-| ${en}
-| *Saknar beskrivning*
+|`${en.value}`
+|<#if en.description??>${en.description}<#else>_Missing_</#if>
 </#items>
 |===
 </#list>
 </#if>
-<#if types[name].minLength??>
-Min length::
-${types[name].minLength}
+<#if types[key].minLength??>
+*Min length:* ${types[key].minLength}
+
 </#if>
-<#if types[name].minInclusive??>
-Min inclusive::
-${types[name].minInclusive}
+<#if types[key].minInclusive??>
+*Min inclusive:* ${types[key].minInclusive}
+
 </#if>
-<#if types[name].maxLength??>
-Max length::
-${types[name].maxLength}
+<#if types[key].maxLength??>
+*Max length:* ${types[key].maxLength}
+
 </#if>
-<#if types[name].maxInclusive??>
-Max inclusive::
-${types[name].maxInclusive}
+<#if types[key].maxInclusive??>
+*Max inclusive:* ${types[key].maxInclusive}
+
 </#if>
-<#if types[name].length??>
-Length::
-${types[name].length}
+<#if types[key].length??>
+*Length:* ${types[key].length}
+
 </#if>
-<#if types[name].pattern??>
-Pattern::
+<#if types[key].pattern??>
+*Pattern:*
 ----
-${types[name].pattern}
+${types[key].pattern}
 ----
 </#if>
-<#if types[name].whiteSpace??>
-White space::
-${types[name].whiteSpace}
+<#if types[key].whiteSpace??>
+*White space:* ${types[key].whiteSpace}
+
 </#if>
-<#if types[name].totalDigits??>
-Total digits::
-${types[name].totalDigits}
+<#if types[key].totalDigits??>
+*Total digits:* ${types[key].totalDigits}
+
 </#if>
-<#if types[name].fractionDigits??>
-Fraction digits::
-${types[name].fractionDigits}
+<#if types[key].fractionDigits??>
+*Fraction digits:* ${types[key].fractionDigits}
+
 </#if>
 ****
-// end::${name}[]
+// end::${key}[]
 </#if>
 </#list>
 

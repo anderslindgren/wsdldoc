@@ -7,6 +7,8 @@ import com.predic8.wsdl.Part;
 
 import java.util.*;
 
+import static com.tsystems.wsdldoc.TypesMapper.getLongName;
+
 /**
  * By: Alexey Matveev
  * Date: 25.08.2016
@@ -20,7 +22,7 @@ public class TypesLocator {
     public static Map<String, TypeData> createMapOfTypes(Definitions defs,
                                                          Map<String, TypeDefinition> mapOfOriginalTypes,
                                                          Map<String, Element> mapOfElements) {
-        Map<String, TypeData> result = new HashMap<>();
+        Map<String, TypeData> result = new TreeMap<>();
         // get all messages
         // for each get parts
         // part -> element -> schema
@@ -29,7 +31,7 @@ public class TypesLocator {
         // complex type name is unique
         // simple type name
         // schema has imports -> other import schemas
-        HashSet<String> alreadyCheckedSchemas = new HashSet<>();
+        Set<String> alreadyCheckedSchemas = new HashSet<>();
         for (Message message : defs.getMessages()) {
             for (Part part : message.getParts()) {
                 Element element = part.getElement();
@@ -50,13 +52,15 @@ public class TypesLocator {
             List<ComplexType> complexTypes = schema.getComplexTypes();
             if (complexTypes != null) {
                 for (ComplexType ct : complexTypes) {
-                    result.put(ct.getName(), TypesMapper.map2ComplexType(ct, mapOfOriginalTypes, mapOfElements));
+                    String longName = getLongName( ct.getSchema().getTargetNamespace(), ct.getName());
+                    result.put(longName, TypesMapper.map2ComplexType(ct, mapOfOriginalTypes, mapOfElements));
                 }
             }
             List<SimpleType> simpleTypes = schema.getSimpleTypes();
             if (simpleTypes != null) {
                 for (SimpleType st : simpleTypes) {
-                    result.put(st.getName(), TypesMapper.map2SimpleType(st));
+                    String longName = getLongName(st.getSchema().getTargetNamespace(), st.getName());
+                    result.put(longName, TypesMapper.map2SimpleType(st));
                 }
             }
             List<Schema> importedSchemas = schema.getImportedSchemas();
@@ -80,9 +84,10 @@ public class TypesLocator {
      * Map is created for lookup types.
      */
     public static Map<String, TypeDefinition> createMapOfOriginalTypes(Definitions defs) {
-        Map<String, TypeDefinition> result = new HashMap<>();
-        HashSet<String> alreadyCheckedSchemas = new HashSet<>();
+        Map<String, TypeDefinition> result = new TreeMap<>();
+        Set<String> alreadyCheckedSchemas = new HashSet<>();
         for (Message message : defs.getMessages()) {
+            System.out.printf("Message %s%n", message.getName());
             for (Part part : message.getParts()) {
                 Element element = part.getElement();
                 if (element != null) {
@@ -91,30 +96,36 @@ public class TypesLocator {
                 }
             }
         }
+        System.out.println("Got " + result.size() + " types");
         return result;
     }
 
     public static void fillOriginalMapRecursively(Map<String, TypeDefinition> result, Schema schema, Set<String> alreadyCheckedSchemas) {
         if (schema != null) {
+            List<Schema> importedSchemas = schema.getImportedSchemas();
+            if (importedSchemas != null) {
+                for (Schema importedSchema : importedSchemas) {
+                    String path = importedSchema.getTargetNamespace();
+                    if (alreadyCheckedSchemas.add(path)) {
+                        fillOriginalMapRecursively(result, importedSchema, alreadyCheckedSchemas);
+                        System.out.printf("Added schema %s to list of already checked schemas%n", path);
+                    }
+                }
+            }
             List<ComplexType> complexTypes = schema.getComplexTypes();
             if (complexTypes != null) {
                 for (ComplexType ct : complexTypes) {
-                    result.put(ct.getName(), ct);
+                    String longName = getLongName(ct.getSchema().getTargetNamespace(), ct.getName());
+                    System.out.printf("Add complex type %s%n", longName);
+                    result.put(longName, ct);
                 }
             }
             List<SimpleType> simpleTypes = schema.getSimpleTypes();
             if (simpleTypes != null) {
                 for (SimpleType st : simpleTypes) {
-                    result.put(st.getName(), st);
-                }
-            }
-            List<Schema> importedSchemas = schema.getImportedSchemas();
-            if (importedSchemas != null) {
-                for (Schema importedSchema : importedSchemas) {
-                    if (!alreadyCheckedSchemas.contains(importedSchema.getSchemaLocation())) {
-                        alreadyCheckedSchemas.add(importedSchema.getSchemaLocation());
-                        fillOriginalMapRecursively(result, importedSchema, alreadyCheckedSchemas);
-                    }
+                    String longName = getLongName(st.getSchema().getTargetNamespace(), st.getName());
+                    System.out.printf("Add simple type %s%n", longName);
+                    result.put(longName, st);
                 }
             }
         }
@@ -124,8 +135,8 @@ public class TypesLocator {
      * Map of elements found in schemas.
      */
     public static Map<String, Element> createMapOfElements(Definitions defs) {
-        Map<String, Element> result = new HashMap<>();
-        HashSet<String> alreadyCheckedSchemas = new HashSet<>();
+        Map<String, Element> result = new TreeMap<>();
+        Set<String> alreadyCheckedSchemas = new HashSet<>();
         for (Message message : defs.getMessages()) {
             for (Part part : message.getParts()) {
                 Element element = part.getElement();
@@ -135,6 +146,7 @@ public class TypesLocator {
                 }
             }
         }
+        System.out.printf("Elements list: %d%n", result.size());
         return result;
     }
 
@@ -146,7 +158,8 @@ public class TypesLocator {
                     if (element.getRef() != null) {
                         System.out.println("Unhandled reference for element " + element.getName() + " in schema " + schema.getSchemaLocation());
                     }
-                    result.put(element.getName(), element);
+                    String longName = getLongName(element.getSchema().getTargetNamespace(), element.getName());
+                    result.put(longName, element);
                 }
             }
             List<Schema> importedSchemas = schema.getImportedSchemas();

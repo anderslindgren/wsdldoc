@@ -11,7 +11,7 @@ import java.util.List;
 public class SimpleTypeData extends TypeData {
 
     private String base;
-    private List<String> enumerations;
+    private final List<EnumType> enumerations;
     private String minLength;
     private String minInclusive;
     private String minExclusive;
@@ -29,12 +29,12 @@ public class SimpleTypeData extends TypeData {
         enumerations = new ArrayList<>();
     }
 
-    public List<String> getEnumerations() {
+    public List<EnumType> getEnumerations() {
         return enumerations;
     }
 
-    public void setEnumerations(List<String> enumerations) {
-        this.enumerations = enumerations;
+    public void addEnum(EnumType enumType) {
+        enumerations.add(enumType);
     }
 
     public String getMinLength() {

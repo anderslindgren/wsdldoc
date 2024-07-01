@@ -130,8 +130,10 @@ public class TypesMapper {
                         TypeDefinition embeddedType = element.getEmbeddedType();
                         if (embeddedType instanceof SimpleType simpleType) {
                             ed = map2ElementWithSimpleType(element, simpleType);
+//                        } else if (embeddedType instanceof ComplexType complexType) {
+//                            ed = map2Element(element, complexType);
                         } else {
-                            System.out.println("Unhandled embedded type's type in component " + name);
+                            System.out.println("Unhandled embedded type's type in component " + name + " " + embeddedType);
                         }
                     } else {
                         ed = map2Element(element, mapOfElements);
@@ -154,6 +156,7 @@ public class TypesMapper {
         SimpleTypeData result = new SimpleTypeData();
         result.setName(st.getName());
         result.setSchema(st.getSchema().getSchemaLocation());
+        result.setDescription(getDescription(st));
         BaseRestriction restriction = st.getRestriction();
         if (restriction != null) {
             result.setBase(restriction.getBase().getLocalPart());
@@ -210,11 +213,7 @@ public class TypesMapper {
                 BaseRestriction restriction = st.getRestriction();
                 if (restriction != null) {
                     QName base = restriction.getBase();
-                    if (base.getNamespaceURI().contains("www.w3.org")) {
-                        result.setNativeType(true);
-                    } else {
-                        result.setNativeType(false);
-                    }
+                    result.setNativeType(base.getNamespaceURI().contains("www.w3.org"));
                     result.setTypeName(base.getLocalPart());
                 }
             } else if (embeddedType instanceof ComplexType ct) {
@@ -252,13 +251,13 @@ public class TypesMapper {
     public static ElementData map2Element(Element element, TypeDefinition type) {
         ElementData result = new ElementData();
         result.setName(element.getName());
-        if (type != null) {
-            result.setTypeName(type.getName());
-        }
         result.setMinOccurs(mapOccurs(element.getMinOccurs()));
         result.setMaxOccurs(mapOccurs(element.getMaxOccurs()));
         result.setDescription(getDescription(type));
         if (type != null) {
+            if (type.getName() != null) {
+                result.setTypeName(type.getName());
+            }
             Schema schema = type.getSchema();
             if (schema != null) {
                 result.setSchema(schema.getSchemaLocation());
@@ -309,7 +308,7 @@ public class TypesMapper {
             if (docs != null) {
                 return docs.stream()
                            .filter(d -> d.getLang() != null && d.getLang().equals("sv"))
-                           .map(Documentation::getContent)
+                           .map(documentation -> documentation.getContent().strip().stripIndent())
                            .collect(Collectors.joining("\n"));
             }
         }

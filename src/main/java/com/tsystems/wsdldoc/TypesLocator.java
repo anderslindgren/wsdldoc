@@ -88,7 +88,6 @@ public class TypesLocator {
         Map<String, TypeDefinition> result = new TreeMap<>();
         Set<String> alreadyCheckedSchemas = new HashSet<>();
         for (Message message : defs.getMessages()) {
-            System.out.printf("Message %s%n", message.getName());
             for (Part part : message.getParts()) {
                 Element element = part.getElement();
                 if (element != null) {
@@ -97,7 +96,6 @@ public class TypesLocator {
                 }
             }
         }
-        System.out.println("Got " + result.size() + " types");
         return result;
     }
 
@@ -109,7 +107,6 @@ public class TypesLocator {
                     String path = importedSchema.getTargetNamespace();
                     if (alreadyCheckedSchemas.add(path)) {
                         fillOriginalMapRecursively(result, importedSchema, alreadyCheckedSchemas);
-                        System.out.printf("Added schema %s to list of already checked schemas%n", path);
                     }
                 }
             }
@@ -117,7 +114,6 @@ public class TypesLocator {
             if (complexTypes != null) {
                 for (ComplexType ct : complexTypes) {
                     String longName = getLongName(ct.getSchema().getTargetNamespace(), ct.getName());
-                    System.out.printf("Add complex type %s%n", longName);
                     result.put(longName, ct);
                 }
             }
@@ -125,7 +121,6 @@ public class TypesLocator {
             if (simpleTypes != null) {
                 for (SimpleType st : simpleTypes) {
                     String longName = getLongName(st.getSchema().getTargetNamespace(), st.getName());
-                    System.out.printf("Add simple type %s%n", longName);
                     result.put(longName, st);
                 }
             }
@@ -147,7 +142,6 @@ public class TypesLocator {
                 }
             }
         }
-        System.out.printf("Elements list: %d%n", result.size());
         return result;
     }
 

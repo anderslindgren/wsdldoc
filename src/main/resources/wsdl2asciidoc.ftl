@@ -112,15 +112,16 @@ link:${types[key].schema}[]
 
 </#if>
 </#if>
-<#if types[key].base ??>
-*Base type:* ${types[key].base}
-
-</#if>
 <#if types[key].description ??>
 ${types[key].description}
 
 </#if>
+<#if types[key].base ??>
+*Base type:* ${types[key].base}
+
+</#if>
 <#if types[key].enumerations??>
+*Enumeration:*
 <#list types[key].enumerations>
 [cols="1,3"]
 |===

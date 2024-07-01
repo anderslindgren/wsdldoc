@@ -204,6 +204,22 @@ public class TypesMapper {
                 result.setNativeType(false);
             }
             result.setTypeName(longName);
+        } else if (element.getEmbeddedType() != null) {
+            TypeDefinition embeddedType = element.getEmbeddedType();
+            if (embeddedType instanceof SimpleType st) {
+                BaseRestriction restriction = st.getRestriction();
+                if (restriction != null) {
+                    QName base = restriction.getBase();
+                    if (base.getNamespaceURI().contains("www.w3.org")) {
+                        result.setNativeType(true);
+                    } else {
+                        result.setNativeType(false);
+                    }
+                    result.setTypeName(base.getLocalPart());
+                }
+            } else if (embeddedType instanceof ComplexType ct) {
+                result.setTypeName(ct.getBuildInTypeName());
+            }
         } else if (element.getRef() != null) {
             String namespace = element.getSchema().getTargetNamespace();
             String refName = element.getRef().getLocalPart();

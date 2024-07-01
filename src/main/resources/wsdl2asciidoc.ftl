@@ -12,7 +12,7 @@
 
 ===== ${method.name}
 
-// tag::${method.name}[]
+// tag::${method.refName}[]
 *Request: ${method.request.name}*
 
 <#if method.request.description ??>
@@ -60,7 +60,7 @@ Description: ${method.response.description}
 </#list>
 |===
 </#if>
-// end::${method.name}[]
+// end::${method.refName}[]
 </#list>
 </#list>
 

@@ -94,7 +94,9 @@ public class DocGenerator {
                            ComplexTypeData out = getComplexTypeData(output, defs, mapOfOriginalTypes, mapOfElements);
 
                            String name = operation.getName();
-                           return new MethodData(name, in, out);
+                           String namespace = operation.getNamespaceUri();
+                           String longName = getRefName(namespace, name);
+                           return new MethodData(name, longName, in, out);
                        })
                        .toList();
     }
@@ -171,5 +173,16 @@ public class DocGenerator {
         }
         return getLongName(namespace, typeName);
     }
+
+    private static String getRefName(String namespace, String localPart) {
+        int i = namespace.indexOf("/", 8) + 1;
+        String start = namespace;
+        if (i >= 1) {
+            start = namespace.substring(i);
+        }
+        return start.replaceAll("/", "_") + "_" + localPart;
+    }
+
+
 
 }

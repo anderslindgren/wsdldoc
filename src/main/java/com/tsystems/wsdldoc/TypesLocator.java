@@ -45,14 +45,15 @@ public class TypesLocator {
     }
 
     public static void fillMapRecursively(Map<String, TypeData> result,
-                                          Schema schema, Set<String> alreadyCheckedSchemas,
+                                          Schema schema,
+                                          Set<String> alreadyCheckedSchemas,
                                           Map<String, TypeDefinition> mapOfOriginalTypes,
                                           Map<String, Element> mapOfElements) {
         if (schema != null) {
             List<ComplexType> complexTypes = schema.getComplexTypes();
             if (complexTypes != null) {
                 for (ComplexType ct : complexTypes) {
-                    String longName = getLongName( ct.getSchema().getTargetNamespace(), ct.getName());
+                    String longName = getLongName(ct.getSchema().getTargetNamespace(), ct.getName());
                     result.put(longName, TypesMapper.map2ComplexType(ct, mapOfOriginalTypes, mapOfElements));
                 }
             }
@@ -150,7 +151,9 @@ public class TypesLocator {
         return result;
     }
 
-    public static void fillMapOfElementsRecursively(Map<String, Element> result, Schema schema, Set<String> alreadyCheckedSchemas) {
+    public static void fillMapOfElementsRecursively(Map<String, Element> result,
+                                                    Schema schema,
+                                                    Set<String> alreadyCheckedSchemas) {
         if (schema != null) {
             List<Element> allElements = schema.getAllElements();
             if (allElements != null) {

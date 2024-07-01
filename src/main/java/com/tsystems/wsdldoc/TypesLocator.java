@@ -7,7 +7,7 @@ import com.predic8.wsdl.Part;
 
 import java.util.*;
 
-import static com.tsystems.wsdldoc.TypesMapper.getLongName;
+import static com.tsystems.wsdldoc.TypesMapper.*;
 
 /**
  * By: Alexey Matveev
@@ -54,14 +54,14 @@ public class TypesLocator {
             if (complexTypes != null) {
                 for (ComplexType ct : complexTypes) {
                     String longName = getLongName(ct.getSchema().getTargetNamespace(), ct.getName());
-                    result.put(longName, TypesMapper.map2ComplexType(ct, mapOfOriginalTypes, mapOfElements));
+                    result.put(longName, map2ComplexType(ct, mapOfOriginalTypes, mapOfElements));
                 }
             }
             List<SimpleType> simpleTypes = schema.getSimpleTypes();
             if (simpleTypes != null) {
                 for (SimpleType st : simpleTypes) {
                     String longName = getLongName(st.getSchema().getTargetNamespace(), st.getName());
-                    result.put(longName, TypesMapper.map2SimpleType(st));
+                    result.put(longName, map2SimpleType(st));
                 }
             }
             List<Schema> importedSchemas = schema.getImportedSchemas();

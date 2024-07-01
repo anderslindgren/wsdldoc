@@ -14,8 +14,7 @@ import java.io.IOException;
 import java.util.*;
 
 import static com.tsystems.wsdldoc.TypesLocator.*;
-import static com.tsystems.wsdldoc.TypesMapper.getLongName;
-import static com.tsystems.wsdldoc.TypesMapper.map2Element;
+import static com.tsystems.wsdldoc.TypesMapper.*;
 import static freemarker.template.Configuration.VERSION_2_3_33;
 
 /**
@@ -110,7 +109,7 @@ public class DocGenerator {
         TypeDefinition originalRequestType = mapOfOriginalTypes.get(typeName);
         ComplexTypeData result = null;
         if (originalRequestType != null) {
-            result = TypesMapper.map2ComplexType((ComplexType) originalRequestType, mapOfOriginalTypes, mapOfElements);
+            result = map2ComplexType((ComplexType) originalRequestType, mapOfOriginalTypes, mapOfElements);
         } else {
             // check if it's an element
             Element element = mapOfElements.get(typeName);
